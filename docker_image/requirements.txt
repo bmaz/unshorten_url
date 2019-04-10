@@ -1,0 +1,5 @@
+requests
+redis>=3.0.0
+rq
+flask
+elasticsearch==5.4

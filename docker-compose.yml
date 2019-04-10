@@ -1,0 +1,32 @@
+version: '3'
+
+services:
+
+  server:
+    build: docker_image
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./src:/usr/src/app
+    command: ["python", "server.py"]
+
+  worker:
+    build: docker_image
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+    volumes:
+      - ./src:/usr/src/app
+      - ./workers_data:/usr/src/app/datals
+    command: ["python", "worker.py"]
+
+  redis:
+    image: redis:alpine
+    volumes:
+      - ./redis_data:/data
+    command: ["redis-server", "--appendonly", "yes"]

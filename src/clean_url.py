@@ -1,0 +1,48 @@
+from requests import Session, exceptions
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+from redis import Redis
+import json
+import logging
+
+logging.basicConfig(format='%(asctime)s - %(levelname)s : %(message)s', level=logging.INFO)
+
+s = Session()
+s.trust_env = False
+s.proxies = {
+    "http": "http://firewall.ina.fr:81",
+    "https": "http://firewall.ina.fr:81",
+}
+cache = Redis(host='redis', port=6379, decode_responses=True)
+
+def expand_url(url):
+    # s.headers = {'User-Agent': random.choice(user_agents)}
+    try:
+        res = s.get(url, timeout=10)
+        cache.set(url, res.url)
+        return res.url
+    except exceptions.ProxyError:
+        return "Error/Proxy"
+
+
+def return_urlparse(short_url):
+    if short_url:
+        long_url = cache.get(short_url)
+        if long_url is None:
+            long_url = expand_url(short_url)
+        parse = urlparse(long_url)
+        if parse.netloc != "Error":
+            full_url = urlunparse(parse)
+            parse = parse._replace(query="", params="", scheme="http", fragment="")
+            clean_url = urlunparse(parse)
+            return {"domain": parse.netloc, "full_url": full_url, "unshorten_url": clean_url, "short_url": short_url}
+        return {"error": parse.path, "short_url": short_url}
+
+
+def job(req):
+    parse = return_urlparse(req["url"])
+    parse["id"] = req["id"]
+    with open(req["file"], "a+", encoding="utf-8") as f:
+        json.dump(parse, f)
+        f.write("\n")
+    logging.info(req["file"])
+
