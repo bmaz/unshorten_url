@@ -32,10 +32,10 @@ def return_urlparse(short_url):
         parse = urlparse(long_url)
         if parse.netloc != "Error":
             full_url = urlunparse(parse)
-            parse = parse._replace(query="", params="", scheme="http", fragment="")
+            parse = parse._replace(params="", scheme="http", fragment="")
             clean_url = urlunparse(parse)
-            return {"domain": parse.netloc, "full_url": full_url, "standard_url": clean_url, "short_url": short_url}
-        return {"error": parse.path, "short_url": short_url}
+            return {"short_url": short_url, "domain": parse.netloc, "full_url": full_url, "standard_url": clean_url}
+        return {"short_url": short_url, "error": parse.path}
 
 
 def write_output(data):
