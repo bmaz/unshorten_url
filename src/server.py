@@ -9,7 +9,7 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s : %(message)s', level=lo
 
 app = Flask(__name__)
 redis = Redis(host='redis', port=6379)
-q = Queue('urls', connection=redis)
+queue_in = Queue('inputs', connection=redis)
 
 
 @app.route("/", methods=["POST"])
@@ -18,7 +18,7 @@ def route(short_url=None):
     if request.method == "GET":
         return Response(response=json.dumps(return_urlparse(short_url)), status=200, mimetype="application/json")
     else:
-        res = q.enqueue(job, request.form)
+        res = queue_in.enqueue(job, request.form)
         return str(res)
 
 

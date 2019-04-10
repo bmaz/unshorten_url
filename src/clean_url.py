@@ -1,21 +1,21 @@
 from requests import Session, exceptions
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from redis import Redis
+from rq import Queue
 import json
 import logging
+from conf import outputfile, proxies
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s : %(message)s', level=logging.INFO)
 
 s = Session()
 s.trust_env = False
-s.proxies = {
-    "http": "http://firewall.ina.fr:81",
-    "https": "http://firewall.ina.fr:81",
-}
+s.proxies = proxies
 cache = Redis(host='redis', port=6379, decode_responses=True)
+queue_out = Queue('outputs', connection=cache)
+
 
 def expand_url(url):
-    # s.headers = {'User-Agent': random.choice(user_agents)}
     try:
         res = s.get(url, timeout=10)
         cache.set(url, res.url)
@@ -34,15 +34,19 @@ def return_urlparse(short_url):
             full_url = urlunparse(parse)
             parse = parse._replace(query="", params="", scheme="http", fragment="")
             clean_url = urlunparse(parse)
-            return {"domain": parse.netloc, "full_url": full_url, "unshorten_url": clean_url, "short_url": short_url}
+            return {"domain": parse.netloc, "full_url": full_url, "standard_url": clean_url, "short_url": short_url}
         return {"error": parse.path, "short_url": short_url}
+
+
+def write_output(data):
+    with open("/data/"+outputfile, "a+", encoding="utf-8") as f:
+        json.dump(data, f)
+        f.write("\n")
 
 
 def job(req):
     parse = return_urlparse(req["url"])
     parse["id"] = req["id"]
-    with open(req["file"], "a+", encoding="utf-8") as f:
-        json.dump(parse, f)
-        f.write("\n")
-    logging.info(req["file"])
+    queue_out.enqueue(write_output, parse)
+
 

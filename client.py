@@ -10,8 +10,7 @@ if __name__ == "__main__":
     r = s.post("http://0.0.0.0:5000/", data=
         {
             "id": 0,
-            "url": "https://lemde.fr/2VyDuzW",
-            "file": "/usr/src/app/data/tmp.json"
+            "url": "https://nyti.ms/4K9g6u"
         }
         )
     logging.info(r)
