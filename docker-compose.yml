@@ -1,9 +1,14 @@
 version: '3'
 
-services:
+networks:
+  default:
+    external:
+      name: urls0
 
+services:
   server:
     build: docker_image
+    image: unshortenurl_server:latest
     depends_on:
       - redis
     environment:
@@ -13,9 +18,9 @@ services:
     volumes:
       - ./src:/usr/src/app
     command: ["python", "server.py"]
-
   worker:
     build: docker_image
+    image: unshortenurl_worker:latest
     depends_on:
       - redis
     environment:
@@ -23,9 +28,12 @@ services:
     volumes:
       - ./src:/usr/src/app
     command: ["python", "worker.py"]
-
+    deploy:
+      mode: replicated
+      replicas: 1
   consumer:
     build: docker_image
+    image: unshortenurl_consumer:latest
     depends_on:
       - redis
     environment:
@@ -34,7 +42,6 @@ services:
       - ./src:/usr/src/app
       - ./:/data
     command: ["python", "consumer.py"]
-
   redis:
     image: redis:alpine
     volumes:
