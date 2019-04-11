@@ -2,7 +2,8 @@ from requests import Session, exceptions
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from redis import Redis
 from rq import Queue
-import json
+import csv
+import os
 import logging
 from conf import outputfile, proxies
 
@@ -31,17 +32,21 @@ def return_urlparse(short_url):
             long_url = expand_url(short_url)
         parse = urlparse(long_url)
         if parse.netloc != "Error":
-            full_url = urlunparse(parse)
-            parse = parse._replace(params="", scheme="http", fragment="")
-            clean_url = urlunparse(parse)
-            return {"short_url": short_url, "domain": parse.netloc, "full_url": full_url, "standard_url": clean_url}
+            # full_url = urlunparse(parse)
+            # parse = parse._replace(params="", scheme="http", fragment="")
+            # clean_url = urlunparse(parse)
+            return {"short_url": short_url, "domain": parse.netloc, "full_url": long_url}
         return {"short_url": short_url, "error": parse.path}
 
 
 def write_output(data):
+    headers = ["id", "short_url", "domain", "full_url", "error"]
+    file_exists = os.path.isfile("/data/"+outputfile)
     with open("/data/"+outputfile, "a+", encoding="utf-8") as f:
-        json.dump(data, f)
-        f.write("\n")
+        writer = csv.DictWriter(f, fieldnames=headers, delimiter=";", quoting=csv.QUOTE_ALL)
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(data)
 
 
 def job(req):
