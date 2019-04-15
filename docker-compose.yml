@@ -30,7 +30,7 @@ services:
     command: ["python", "worker.py"]
     deploy:
       mode: replicated
-      replicas: 1
+      replicas: 64
   consumer:
     build: docker_image
     image: unshortenurl_consumer:latest
@@ -47,3 +47,27 @@ services:
     volumes:
       - ./redis_data:/data
     command: ["redis-server", "--appendonly", "yes"]
+  client:
+    build: docker_image
+    image: unshortenurl_client:latest
+    depends_on:
+      - server
+    volumes:
+      - ./src:/usr/src/app
+      - ./:/data
+    command: ["python", "client.py"]
+  timeout_handler:
+    build: docker_image
+    image: unshortenurl_client:latest
+    depends_on:
+      - server
+    volumes:
+      - ./src:/usr/src/app
+    command: ["python", "timeout_handler.py"]
+  rqdashboard:
+    image: docker.rech.priv.ina:5001/bmazoyer/rqdashboard
+    ports:
+      - 9181:9181
+    depends_on:
+      - redis
+    command: rq-dashboard -H redis

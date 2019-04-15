@@ -86,11 +86,13 @@ def write_output(data):
         with open("/data/"+outputfile, "a+", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=headers, delimiter=";", quoting=csv.QUOTE_ALL)
             writer.writeheader()
-    while True:
-        with open("/data/"+outputfile, "a+", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=headers, delimiter=";", quoting=csv.QUOTE_ALL)
-            writer.writerow(data)
 
+    with open("/data/"+outputfile, "a+", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=headers, delimiter=";", quoting=csv.QUOTE_ALL)
+        writer.writerow(data)
+
+def timeout_handler():
+    pass
 
 def job(req):
     parse = return_urlparse(req["url"])
