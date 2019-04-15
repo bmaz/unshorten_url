@@ -5,7 +5,10 @@ from rq import Queue
 import csv
 import os
 import logging
-from conf import outputfile, proxies
+from conf import outputfile, proxies, nb_workers
+from datetime import datetime, timedelta
+from elasticsearch import Elasticsearch, helpers
+import time
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s : %(message)s', level=logging.INFO)
 
@@ -14,7 +17,7 @@ s.trust_env = False
 s.proxies = proxies
 cache = Redis(host='redis', port=6379, decode_responses=True)
 queue_out = Queue('outputs', connection=cache)
-
+queue_in = Queue('inputs', connection=cache, default_timeout=12)
 
 def expand_url(url):
     try:
@@ -54,4 +57,27 @@ def job(req):
     parse["id"] = req["id"]
     queue_out.enqueue(write_output, parse)
 
+if __name__ == "__main__":
+    start = datetime(2018, 12, 1, 8, 0, 0)
+    end = datetime(2018, 12, 31, 23, 59, 59)
 
+    es = Elasticsearch("otmedia-srv01.priv.ina:9292")
+    try:
+        cache = Redis(host='redis', port=6379, decode_responses=True)
+    except Exception:
+        time.sleep(30)
+    while True:
+        query = build_query(start)
+        logging.info(query["query"]["bool"]["filter"])
+        scan = helpers.scan(client=es, index="otmtweets-2018-12*", query=query)
+        counter = 0
+        for doc in scan:
+            counter += 1
+            for url in doc["_source"]["entities"]["urls"]:
+                if not url["expanded_url"].startswith("https://twitter.com/"):
+                    queue_in.put({"id": doc["_id"], "created_at": doc["_source"]["created_at"], "url":url["expanded_url"]})
+                    # r = s.post("http://server:5000/", data={"id": doc["_id"], "url":url["expanded_url"]})
+        start = start + timedelta(hours=1)
+        if start > end:
+            break
+    logging.info("DONE")
