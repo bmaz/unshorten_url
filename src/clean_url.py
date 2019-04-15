@@ -16,6 +16,8 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s : %(message)s', level=lo
 s = requests.Session()
 s.trust_env = False
 s.proxies = proxies
+adapter = requests.adapters.HTTPAdapter(pool_connections=nb_workers, pool_maxsize=nb_workers)
+s.mount('http://', adapter)
 try:
     cache = Redis(host='redis', port=6379, decode_responses=True)
 except Exception:
