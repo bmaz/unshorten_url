@@ -9,8 +9,6 @@ import csv
 import os
 import logging
 from conf import outputfile, proxies, nb_workers, date_format
-from datetime import datetime, timedelta
-from elasticsearch import Elasticsearch, helpers
 import time
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s : %(message)s', level=logging.INFO)
@@ -22,8 +20,8 @@ try:
     cache = Redis(host='redis', port=6379, decode_responses=True)
 except Exception:
     time.sleep(30)
+    cache = Redis(host='redis', port=6379, decode_responses=True)
 queue_out = Queue('outputs', connection=cache)
-queue_in = Queue('inputs', connection=cache, default_timeout=12)
 
 class MyTimeout(TimeoutSauce):
     def __init__(self, *args, **kwargs):
@@ -35,22 +33,7 @@ class MyTimeout(TimeoutSauce):
 
 requests.adapters.TimeoutSauce = MyTimeout
 
-def build_query(start):
-    query = {
-        "_source": ["entities.urls", "created_at"],
-        "query": {
-            "bool": {
-                "filter": [
-                    {"exists": {"field": "entities.urls"}},
-                    {"range": {"created_at": {
-                        "gte": start.strftime(date_format),
-                        "lte": (start + timedelta(hours=1)).strftime(date_format),
-                    }}},
-                ]
-            }
-        }
-    }
-    return query
+
 
 def expand_url(url):
     try:
@@ -114,26 +97,3 @@ def job(req):
     parse["id"] = req["id"]
     parse["created_at"] = req["created_at"]
     queue_out.enqueue(write_output, parse)
-
-if __name__ == "__main__":
-    start = datetime(2018, 12, 1, 8, 0, 0)
-    end = datetime(2018, 12, 31, 23, 59, 59)
-
-    es = Elasticsearch("otmedia-srv01.priv.ina:9292")
-
-    while True:
-        query = build_query(start)
-        logging.info(query["query"]["bool"]["filter"])
-        scan = helpers.scan(client=es, index="otmtweets-2018-12*", query=query)
-        counter = 0
-        for doc in scan:
-            counter += 1
-            for url in doc["_source"]["entities"]["urls"]:
-                if not url["expanded_url"].startswith("https://twitter.com/"):
-                    req = {"id": doc["_id"], "created_at": doc["_source"]["created_at"], "url":url["expanded_url"]}
-                    queue_in.enqueue(job, req)
-                    # r = s.post("http://server:5000/", data={"id": doc["_id"], "url":url["expanded_url"]})
-        start = start + timedelta(hours=1)
-        if start > end:
-            break
-    logging.info("DONE")
