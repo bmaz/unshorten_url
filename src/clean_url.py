@@ -1,5 +1,7 @@
 import requests
 from requests.adapters import TimeoutSauce
+from urllib3.exceptions import ReadTimeoutError
+from ssl import CertificateError
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from redis import Redis
 from rq import Queue
