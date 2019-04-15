@@ -1,23 +1,51 @@
-from requests import Session, exceptions
+import requests
+from requests.adapters import TimeoutSauce
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from redis import Redis
 from rq import Queue
 import csv
 import os
 import logging
-from conf import outputfile, proxies, nb_workers
+from conf import outputfile, proxies, nb_workers, date_format
 from datetime import datetime, timedelta
 from elasticsearch import Elasticsearch, helpers
 import time
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s : %(message)s', level=logging.INFO)
 
-s = Session()
+s = requests.Session()
 s.trust_env = False
 s.proxies = proxies
 cache = Redis(host='redis', port=6379, decode_responses=True)
 queue_out = Queue('outputs', connection=cache)
 queue_in = Queue('inputs', connection=cache, default_timeout=12)
+
+class MyTimeout(TimeoutSauce):
+    def __init__(self, *args, **kwargs):
+        if kwargs['connect'] is None:
+            kwargs['connect'] = 10
+        if kwargs['read'] is None:
+            kwargs['read'] = 10
+        super(MyTimeout, self).__init__(*args, **kwargs)
+
+requests.adapters.TimeoutSauce = MyTimeout
+
+def build_query(start):
+    query = {
+        "_source": ["entities.urls", "created_at"],
+        "query": {
+            "bool": {
+                "filter": [
+                    {"exists": {"field": "entities.urls"}},
+                    {"range": {"created_at": {
+                        "gte": start.strftime(date_format),
+                        "lte": (start + timedelta(hours=1)).strftime(date_format),
+                    }}},
+                ]
+            }
+        }
+    }
+    return query
 
 def expand_url(url):
     try:
