@@ -13,8 +13,8 @@ services:
       - 15672:15672
       - 5672:5672
     environment:
-      RABBITMQ_DEFAULT_USER: beatrice
-      RABBITMQ_DEFAULT_PASS: beatrice
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
       RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: '-rabbit tcp_listeners [{"::",5672}]'
     restart: on-failure
     deploy:
