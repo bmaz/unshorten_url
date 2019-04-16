@@ -4,7 +4,7 @@ from urllib3.exceptions import ReadTimeoutError
 from ssl import CertificateError
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from redis import Redis
-from rq import Queue
+from rabbit_queue import RabbitQueue
 import csv
 import os
 import logging
@@ -23,7 +23,7 @@ try:
 except Exception:
     time.sleep(30)
     cache = Redis(host='redis', port=6379, decode_responses=True)
-queue_out = Queue('outputs', connection=cache)
+queue_out = RabbitQueue('outputs')
 
 class MyTimeout(TimeoutSauce):
     def __init__(self, *args, **kwargs):
@@ -33,8 +33,8 @@ class MyTimeout(TimeoutSauce):
             kwargs['read'] = 10
         super(MyTimeout, self).__init__(*args, **kwargs)
 
-requests.adapters.TimeoutSauce = MyTimeout
 
+requests.adapters.TimeoutSauce = MyTimeout
 
 
 def expand_url(url):
@@ -81,23 +81,8 @@ def return_urlparse(short_url):
             return {"short_url": short_url, "error": long_url}
         return {"short_url": short_url, "domain": parse.netloc, "full_url": long_url}
 
-
-def write_output(data):
-    headers = ["id", "created_at", "short_url", "domain", "full_url", "error"]
-    if not os.path.isfile("/data/"+outputfile):
-        with open("/data/"+outputfile, "a+", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=headers, delimiter=";", quoting=csv.QUOTE_ALL)
-            writer.writeheader()
-
-    with open("/data/"+outputfile, "a+", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=headers, delimiter=";", quoting=csv.QUOTE_ALL)
-        writer.writerow(data)
-
-def timeout_handler():
-    pass
-
 def job(req):
     parse = return_urlparse(req["url"])
     parse["id"] = req["id"]
     parse["created_at"] = req["created_at"]
-    queue_out.enqueue(write_output, parse)
+    queue_out.publish(parse)

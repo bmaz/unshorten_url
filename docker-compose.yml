@@ -6,38 +6,40 @@ networks:
       name: urls0
 
 services:
-  server:
-    build: docker_image
-    image: unshortenurl_server:latest
-    depends_on:
-      - redis
-    environment:
-      - REDIS_HOST=redis
+  rabbitmq:
+    image: docker.rech.priv.ina:5000/rabbitmq:3.6.14-management
+    hostname: rabbitmq
     ports:
-      - "5000:5000"
-    volumes:
-      - ./src:/usr/src/app
-    command: ["python", "server.py"]
+      - 15672:15672
+      - 5672:5672
+    environment:
+      RABBITMQ_DEFAULT_USER: beatrice
+      RABBITMQ_DEFAULT_PASS: beatrice
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: '-rabbit tcp_listeners [{"::",5672}]'
+    restart: on-failure
+    deploy:
+      mode: replicated
+      replicas: 1
   worker:
     build: docker_image
     image: unshortenurl_worker:latest
     depends_on:
+      - rabbitmq
       - redis
     environment:
       - REDIS_HOST=redis
     volumes:
       - ./src:/usr/src/app
+      - ./:/data
     command: ["python", "worker.py"]
     deploy:
       mode: replicated
-      replicas: 64
+      replicas: 8
   consumer:
     build: docker_image
     image: unshortenurl_consumer:latest
     depends_on:
-      - redis
-    environment:
-      - REDIS_HOST=redis
+      - rabbitmq
     volumes:
       - ./src:/usr/src/app
       - ./:/data
@@ -51,23 +53,11 @@ services:
     build: docker_image
     image: unshortenurl_client:latest
     depends_on:
-      - server
+      - rabbitmq
     volumes:
       - ./src:/usr/src/app
       - ./:/data
     command: ["python", "client.py"]
-  timeout_handler:
-    build: docker_image
-    image: unshortenurl_client:latest
-    depends_on:
-      - server
-    volumes:
-      - ./src:/usr/src/app
-    command: ["python", "timeout_handler.py"]
-  rqdashboard:
-    image: docker.rech.priv.ina:5001/bmazoyer/rqdashboard
-    ports:
-      - 9181:9181
-    depends_on:
-      - redis
-    command: rq-dashboard -H redis
+    deploy:
+      restart_policy:
+        condition: on-failure

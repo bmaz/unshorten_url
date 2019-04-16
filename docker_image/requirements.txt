@@ -1,5 +1,4 @@
 requests
 redis>=3.0.0
-rq
-flask
+pika==0.11.2
 elasticsearch==5.4

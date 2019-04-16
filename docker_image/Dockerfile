@@ -1,4 +1,4 @@
-FROM python:3.7-alpine
+FROM python:3.5-alpine
 
 ENV http_proxy=http://firewall.ina.fr:81/
 ENV https_proxy=http://firewall.ina.fr:81/
