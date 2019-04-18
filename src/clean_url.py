@@ -75,7 +75,13 @@ def return_urlparse(short_url):
     if short_url:
         long_url = cache.get(short_url)
         if long_url is None:
+            t0 = time.time()
             long_url = expand_url(short_url)
+            t1 = time.time()
+            if t0 - t1 > 10:
+                logging.error("{} took {} seconds to resolve".format(short_url, t0 - t1))
+            else:
+                logging.info("{} took {} seconds to resolve".format(short_url, t0 - t1))
         parse = urlparse(long_url)
         if long_url.startswith("Error"):
             return {"short_url": short_url, "error": long_url}
