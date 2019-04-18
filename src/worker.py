@@ -1,15 +1,23 @@
-from rabbit_queue import RabbitQueue
-import logging
-import json
-from clean_url import job
+from redis import Redis
+from rq import Queue, Worker
+import requests
+from requests.adapters import TimeoutSauce
+from urllib3.exceptions import ReadTimeoutError
+from ssl import CertificateError
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
-logging.basicConfig(format='%(asctime)s - %(levelname)s : %(message)s', level=logging.INFO)
+class MyTimeout(TimeoutSauce):
+    def __init__(self, *args, **kwargs):
+        if kwargs['connect'] is None:
+            kwargs['connect'] = 10
+        if kwargs['read'] is None:
+            kwargs['read'] = 10
+        super(MyTimeout, self).__init__(*args, **kwargs)
 
-def on_message(channel, method_frame, header_frame, body):
-    job(json.loads(body.decode("utf-8")))
-    channel.basic_ack(delivery_tag=method_frame.delivery_tag)
+requests.adapters.TimeoutSauce = MyTimeout
 
-if __name__ == "__main__":
-    queue_in = RabbitQueue("inputs")
-    queue_in.queue.basic_consume(on_message, queue_in.name)
-    queue_in.queue.start_consuming()
+redis = Redis(host='redis', port=6379)
+queue = Queue('inputs', connection=redis, default_timeout=12)
+
+worker = Worker([queue], connection=redis)
+worker.work()
