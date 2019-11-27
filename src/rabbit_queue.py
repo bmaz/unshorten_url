@@ -13,7 +13,8 @@ class RabbitQueue:
         for i in range(3):
             try:
                 rabbit_client = pika.BlockingConnection(
-                    pika.ConnectionParameters(host=rabbit_host, port=rabbit_port,
+                    pika.ConnectionParameters(host=rabbit_host, port=rabbit_port, heartbeat=600,
+                                              blocked_connection_timeout=300,
                                               credentials=pika.credentials.PlainCredentials(
                                                   username=rabbit_user,
                                                   password=rabbit_password)))

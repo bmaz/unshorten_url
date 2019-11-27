@@ -28,9 +28,9 @@ queue_out = RabbitQueue('outputs')
 class MyTimeout(TimeoutSauce):
     def __init__(self, *args, **kwargs):
         if kwargs['connect'] is None:
-            kwargs['connect'] = 10
+            kwargs['connect'] = 5
         if kwargs['read'] is None:
-            kwargs['read'] = 10
+            kwargs['read'] = 5
         super(MyTimeout, self).__init__(*args, **kwargs)
 
 
@@ -39,9 +39,9 @@ requests.adapters.TimeoutSauce = MyTimeout
 
 def expand_url(url):
     try:
-        res = s.get(url, timeout=10)
-        cache.set(url, res.url)
-        return res.url
+        with s.get(url, stream=True, timeout=5) as res:
+            cache.set(url, res.url)
+            return res.url
     except requests.exceptions.ProxyError:
         cache.set(url, "Error/ProxyError")
         return "Error/ProxyError"
@@ -78,14 +78,13 @@ def return_urlparse(short_url):
             t0 = time.time()
             long_url = expand_url(short_url)
             t1 = time.time()
-            if t0 - t1 > 10:
-                logging.error("{} took {} seconds to resolve".format(short_url, t0 - t1))
-            else:
-                logging.info("{} took {} seconds to resolve".format(short_url, t0 - t1))
+            if t1 - t0 > 10:
+                logging.error("{} took {} seconds to resolve".format(short_url, round(t1 - t0)))
         parse = urlparse(long_url)
         if long_url.startswith("Error"):
             return {"short_url": short_url, "error": long_url}
         return {"short_url": short_url, "domain": parse.netloc, "full_url": long_url}
+
 
 def job(req):
     parse = return_urlparse(req["url"])
